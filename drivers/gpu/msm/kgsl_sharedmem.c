@@ -536,6 +536,7 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	pgprot_t page_prot = pgprot_writecombine(PAGE_KERNEL);
 	void *ptr;
 	unsigned int align;
+	int step = ((VMALLOC_END - VMALLOC_START)/8) >> PAGE_SHIFT;
 
 	align = (memdesc->flags & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT;
 
@@ -649,30 +650,36 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	 * zeroed and unmaped each individual page, and then we had to turn
 	 * around and call flush_dcache_page() on that page to clear the caches.
 	 * This was killing us for performance. Instead, we found it is much
-	 * faster to allocate the pages without GFP_ZERO, map the entire range,
-	 * memset it, flush the range and then unmap - this results in a factor
-	 * of 4 improvement for speed for large buffers.  There is a small
-	 * increase in speed for small buffers, but only on the order of a few
-	 * microseconds at best.  The only downside is that there needs to be
-	 * enough temporary space in vmalloc to accomodate the map. This
-	 * shouldn't be a problem, but if it happens, fall back to a much slower
-	 * path
+	 * faster to allocate the pages without GFP_ZERO, map a chunk of the
+	 * range ('step' pages), memset it, flush it and then unmap
+	 * - this results in a factor of 4 improvement for speed for large
+	 * buffers. There is a small decrease in speed for small buffers,
+	 * but only on the order of a few microseconds at best. The 'step'
+	 * size is based on a guess at the amount of free vmalloc space, but
+	 * will scale down if there's not enough free space.
 	 */
+	for (j = 0; j < pcount; j += step) {
+		step = min(step, pcount - j);
 
-	ptr = vmap(pages, pcount, VM_IOREMAP, page_prot);
+		ptr = vmap(&pages[j], step, VM_IOREMAP, page_prot);
 
-	if (ptr != NULL) {
-		memset(ptr, 0, memdesc->size);
-		dmac_flush_range(ptr, ptr + memdesc->size);
-		vunmap(ptr);
-	} else {
-		/* Very, very, very slow path */
+		if (ptr != NULL) {
+			memset(ptr, 0, step * PAGE_SIZE);
+			dmac_flush_range(ptr, ptr + step * PAGE_SIZE);
+			vunmap(ptr);
+		} else {
+			int k;
+			/* Very, very, very slow path */
 
-		for (j = 0; j < pcount; j++) {
-			ptr = kmap_atomic(pages[j]);
-			memset(ptr, 0, PAGE_SIZE);
-			dmac_flush_range(ptr, ptr + PAGE_SIZE);
-			kunmap_atomic(ptr);
+			for (k = j; k < j + step; k++) {
+				ptr = kmap_atomic(pages[k]);
+				memset(ptr, 0, PAGE_SIZE);
+				dmac_flush_range(ptr, ptr + PAGE_SIZE);
+				kunmap_atomic(ptr);
+			}
+			/* scale down the step size to avoid this path */
+			if (step > 1)
+				step >>= 1;
 		}
 	}
 
@@ -707,6 +714,8 @@ kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	BUG_ON(size == 0);
 
 	size = ALIGN(size, PAGE_SIZE * 2);
+	if (size == 0)
+		return -EINVAL;
 
 	ret =  _kgsl_sharedmem_page_alloc(memdesc, pagetable, size);
 	if (!ret)
@@ -722,7 +731,11 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 			    struct kgsl_pagetable *pagetable,
 			    size_t size)
 {
-	return _kgsl_sharedmem_page_alloc(memdesc, pagetable, PAGE_ALIGN(size));
+	size = PAGE_ALIGN(size);
+	if (size == 0)
+		return -EINVAL;
+
+	return _kgsl_sharedmem_page_alloc(memdesc, pagetable, size);
 }
 EXPORT_SYMBOL(kgsl_sharedmem_page_alloc_user);
 
@@ -732,6 +745,8 @@ kgsl_sharedmem_alloc_coherent(struct kgsl_memdesc *memdesc, size_t size)
 	int result = 0;
 
 	size = ALIGN(size, PAGE_SIZE);
+	if (size == 0)
+		return -EINVAL;
 
 	memdesc->size = size;
 	memdesc->ops = &kgsl_coherent_ops;
@@ -818,6 +833,9 @@ kgsl_sharedmem_ebimem_user(struct kgsl_memdesc *memdesc,
 			size_t size)
 {
 	size = ALIGN(size, PAGE_SIZE);
+	if (size == 0)
+		return -EINVAL;
+
 	return _kgsl_sharedmem_ebimem(memdesc, pagetable, size);
 }
 EXPORT_SYMBOL(kgsl_sharedmem_ebimem_user);
@@ -828,6 +846,9 @@ kgsl_sharedmem_ebimem(struct kgsl_memdesc *memdesc,
 {
 	int result;
 	size = ALIGN(size, 8192);
+	if (size == 0)
+		return -EINVAL;
+
 	result = _kgsl_sharedmem_ebimem(memdesc, pagetable, size);
 
 	if (result)
