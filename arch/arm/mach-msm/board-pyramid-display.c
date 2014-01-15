@@ -833,7 +833,7 @@ int pyramid_mdp_gamma(void)
 
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = GPIO_LCD_TE,
-	.mdp_max_clk = 200000000,
+	.mdp_max_clk = 266667000,
 	.mdp_max_bw = 2000000000,
 	.mdp_bw_ab_factor = 115,
 	.mdp_bw_ib_factor = 150,
