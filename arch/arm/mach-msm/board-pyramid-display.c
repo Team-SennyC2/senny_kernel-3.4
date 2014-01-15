@@ -841,7 +841,7 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 #endif
 	.mdp_rev = MDP_REV_41,
-	.mem_hid = BIT(ION_CP_WB_HEAP_ID),
+	.mem_hid = BIT(ION_MM_HEAP_ID),
 	.cont_splash_enabled = 0x00,
 	.splash_screen_addr = 0x00,
 	.splash_screen_size = 0x00,
@@ -1496,10 +1496,15 @@ static int pyramid_lcd_on(struct platform_device *pdev)
 	return 0;
 }
 
+static int pyramid_early_off(struct platform_device *pdev)
+ {
+   return 0;
+}
+
 static int pyramid_lcd_off(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
-
+	
 	mfd = platform_get_drvdata(pdev);
 
 	if (!mfd)
@@ -1639,6 +1644,7 @@ static struct msm_fb_panel_data pyramid_panel_data = {
 	.on	       = pyramid_lcd_on,
 	.off	       = pyramid_lcd_off,
 	.set_backlight = pyramid_set_backlight,
+	.early_off  = 	 pyramid_early_off,
 };
 
 static struct msm_panel_info pinfo;

@@ -87,6 +87,8 @@ static u32 msm_fb_pseudo_palette[16] = {
 	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff
 };
 
+
+ 
 static struct ion_client *iclient;
 
 u32 msm_fb_debug_enabled;
@@ -4277,6 +4279,8 @@ int msm_fb_writeback_terminate(struct fb_info *info)
 }
 EXPORT_SYMBOL(msm_fb_writeback_terminate);
 #endif
+
+
 
 struct platform_device *msm_fb_add_device(struct platform_device *pdev)
 {
