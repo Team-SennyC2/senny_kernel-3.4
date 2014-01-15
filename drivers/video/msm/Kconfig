@@ -14,12 +14,6 @@ config FB_MSM
 
 if FB_MSM
 
-config NEW_MSM_KGSL
-       bool "Use new KGSL (flo)"
-       depends on ARCH_MSM && !ARCH_MSM7X00A && !ARCH_MSM7X25
-       default y if ARCH_APQ8064
-       default n
-
 config FB_MSM_BACKLIGHT
 	bool "Support for backlight control"
 	default y

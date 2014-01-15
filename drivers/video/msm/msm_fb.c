@@ -25,6 +25,7 @@
 #include <linux/fb.h>
 #include <linux/msm_mdp.h>
 #include <linux/init.h>
+#include <linux/kthread.h>
 #include <linux/ioport.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
@@ -120,7 +121,7 @@ static int msm_fb_mmap(struct fb_info *info, struct vm_area_struct * vma);
 static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
 						struct mdp_bl_scale_data *data);
 static void msm_fb_scale_bl(__u32 bl_max, __u32 *bl_lvl);
-static void msm_fb_commit_wq_handler(struct work_struct *work);
+static int msm_fb_commit_thread(void *data);
 static int msm_fb_pan_idle(struct msm_fb_data_type *mfd);
 
 #ifdef MSM_FB_ENABLE_DBGFS
@@ -209,7 +210,7 @@ static void msm_fb_set_bl_brightness(struct led_classdev *led_cdev,
 
 static struct led_classdev backlight_led = {
 	.name		= "lcd-backlight",
-	.brightness	= MAX_BACKLIGHT_BRIGHTNESS,
+	.brightness	= (MAX_BACKLIGHT_BRIGHTNESS * .75),
 	.brightness_set	= msm_fb_set_bl_brightness,
 };
 #endif
@@ -469,8 +470,10 @@ static int msm_fb_probe(struct platform_device *pdev)
 	if (!lcd_backlight_registered) {
 		if (led_classdev_register(&pdev->dev, &backlight_led))
 			printk(KERN_ERR "led_classdev_register failed\n");
-		else
+		else {
+			msm_fb_set_bl_brightness(&backlight_led, backlight_led.brightness);
 			lcd_backlight_registered = 1;
+		}
 	}
 #endif
 
@@ -535,6 +538,7 @@ static int msm_fb_remove(struct platform_device *pdev)
 		del_timer(&mfd->msmfb_no_update_notify_timer);
 	complete(&mfd->msmfb_no_update_notify);
 	complete(&mfd->msmfb_update_notify);
+	kthread_stop(mfd->commit_thread);
 
 	/* remove /dev/fb* */
 	unregister_framebuffer(mfd->fbi);
@@ -1519,7 +1523,9 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	init_completion(&mfd->commit_comp);
 	mutex_init(&mfd->sync_mutex);
 	mutex_init(&mfd->queue_mutex);
-	INIT_WORK(&mfd->commit_work, msm_fb_commit_wq_handler);
+	init_waitqueue_head(&mfd->commit_queue);
+	mfd->commit_thread = kthread_run(msm_fb_commit_thread, mfd,
+			"msmfb_commit_thread");
 	mfd->msm_fb_backup = kzalloc(sizeof(struct msm_fb_backup_type),
 		GFP_KERNEL);
 	if (mfd->msm_fb_backup == 0) {
@@ -1964,17 +1970,12 @@ static int msm_fb_pan_display_ex(struct fb_info *info,
 	struct fb_var_screeninfo *var = &disp_commit->var;
 	u32 wait_for_finish = disp_commit->wait_for_finish;
 	int ret = 0;
+
 	if (disp_commit->flags &
 		MDP_DISPLAY_COMMIT_OVERLAY) {
 		if (!mfd->panel_power_on) /* suspended */
 			return -EPERM;
 	} else {
-	        /*
-                WFD panel info was not getting updated,
-		in case of resolution other than 1280x720
-                */
-                mfd->var_xres = info->var.xres;
-                mfd->var_yres = info->var.yres;
 		/*
 		 * If framebuffer is 2, io pan display is not allowed.
 		 */
@@ -2019,7 +2020,8 @@ static int msm_fb_pan_display_ex(struct fb_info *info,
 	mfd->is_committing = 1;
 	INIT_COMPLETION(mfd->commit_comp);
 	atomic_inc(&mfd->commit_cnt);
-	schedule_work(&mfd->commit_work);
+	mfd->wake_commit_thread = 1;
+	wake_up_interruptible_all(&mfd->commit_queue);
 	mutex_unlock(&mfd->sync_mutex);
 	if (wait_for_finish)
 		msm_fb_pan_idle(mfd);
@@ -2170,36 +2172,45 @@ void msm_fb_release_busy(struct msm_fb_data_type *mfd)
 	complete_all(&mfd->commit_comp);
 	mutex_unlock(&mfd->sync_mutex);
 }
-static void msm_fb_commit_wq_handler(struct work_struct *work)
+static int msm_fb_commit_thread(void *data)
 {
-	struct msm_fb_data_type *mfd;
+	int ret = 0;
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *) data;
 	struct fb_var_screeninfo *var;
 	struct fb_info *info;
 	struct msm_fb_backup_type *fb_backup;
 	u32 overlay_commit = false;
 
-	mfd = container_of(work, struct msm_fb_data_type, commit_work);
-	mutex_lock(&mfd->queue_mutex);
-
-	while (atomic_read(&mfd->commit_cnt) > 0) {
-		fb_backup = (struct msm_fb_backup_type *)mfd->msm_fb_backup;
-		info = &fb_backup->info;
-		if (fb_backup->disp_commit.flags &
-			MDP_DISPLAY_COMMIT_OVERLAY) {
-				overlay_commit = true;
-				mdp4_overlay_commit(info);
-		} else {
-			var = &fb_backup->disp_commit.var;
-			msm_fb_pan_display_sub(var, info);
-			msm_fb_release_busy(mfd);
+	while (!kthread_should_stop()) {
+		ret = wait_event_interruptible(mfd->commit_queue,
+				mfd->wake_commit_thread);
+		if (ret >= 0) {
+			mfd->wake_commit_thread = 0;
+			mutex_lock(&mfd->queue_mutex);
+			while (atomic_read(&mfd->commit_cnt) > 0) {
+				fb_backup = (struct msm_fb_backup_type *)
+					mfd->msm_fb_backup;
+				info = &fb_backup->info;
+				if (fb_backup->disp_commit.flags &
+						MDP_DISPLAY_COMMIT_OVERLAY) {
+					overlay_commit = true;
+					mdp4_overlay_commit(info);
+				} else {
+					var = &fb_backup->disp_commit.var;
+					msm_fb_pan_display_sub(var, info);
+					msm_fb_release_busy(mfd);
+				}
+				if (unset_bl_level && !bl_updated)
+					schedule_delayed_work(
+							&mfd->backlight_worker,
+							backlight_duration);
+			}
+			if (overlay_commit)
+				mdp4_overlay_commit_finish(info);
+			mutex_unlock(&mfd->queue_mutex);
 		}
-		if (unset_bl_level && !bl_updated)
-			schedule_delayed_work(&mfd->backlight_worker,
-					backlight_duration);
 	}
-	if (overlay_commit)
-		mdp4_overlay_commit_finish(info);
-	mutex_unlock(&mfd->queue_mutex);
+	return 0;
 }
 
 static int msm_fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
