@@ -732,7 +732,7 @@ static irqreturn_t cy8c_ts_irq_thread(int irq, void *ptr)
 	}
 
 	if (buf[2] & 0x10)
-		printk(KERN_INFO "[TOUCH] cy8c large object detected\n");
+		printk(KERN_INFO "[TOUCH] cy8c large object detected | buf[2]: '%i'\n", buf[2]);
 	if ((buf[2] & 0x0F) >= 1) {
 		int base = 0x03;
 		int report = -1;
@@ -805,9 +805,9 @@ static irqreturn_t cy8c_ts_irq_thread(int irq, void *ptr)
 
 		if (ts->ambiguous_state == ts->finger_count
 			|| ts->ambiguous_state == report) {
-			if (ts->flag_htc_event == 0)
+			if (ts->flag_htc_event == 0) {
 				input_mt_sync(ts->input_dev);
-			else {
+			} else {
 				input_report_abs(ts->input_dev, ABS_MT_AMPLITUDE, 0);
 				input_report_abs(ts->input_dev, ABS_MT_POSITION, 1 << 31);
 			}
@@ -910,13 +910,8 @@ static irqreturn_t cy8c_ts_irq_thread(int irq, void *ptr)
 					ts->pre_finger_data[0] = finger_data[0][0];
 					ts->pre_finger_data[1] = finger_data[0][1];
 				}
-			}
-		}
-		if ((ts->unlock_page) &&
-			((ts->p_finger_count > ts->finger_count) ||
-			(ts->finger_count == 4))) {
-			cy8c_reset_baseline();
-		}
+
+	}	}
 	} else {
 		ts->finger_count = 0;
 		ts->p_finger_count = 0;
@@ -1085,7 +1080,7 @@ static int cy8c_ts_probe(struct i2c_client *client,
 	}
 
 	ret = request_threaded_irq(client->irq, NULL, cy8c_ts_irq_thread,
-			  IRQF_TRIGGER_LOW | IRQF_ONESHOT, "cy8c_ts", ts);
+			  IRQF_TRIGGER_FALLING | IRQF_ONESHOT, "cy8c_ts", ts);
 	if (ret != 0) {
 		dev_err(&client->dev, "TOUCH_ERR: request_irq failed\n");
 		dev_err(&client->dev, "TOUCH_ERR: don't support method without irq\n");
@@ -1165,6 +1160,7 @@ static int cy8c_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 			__func__);
 	if (buf[0] & 0x70)
 		i2c_cy8c_write_byte_data(ts->client, 0x00, buf[0] & 0x8F);
+
 	mutex_lock(&cy8c_mutex);
 	i2c_cy8c_write_byte_data(ts->client, 0x00, (buf[0] & 0x8F) | 0x02);
 	ts->suspend = 1;
@@ -1185,7 +1181,7 @@ static int cy8c_ts_resume(struct i2c_client *client)
 	if (!i2c_cy8c_read(ts->client, 0x00, buf, 2))
 		printk(KERN_INFO "%s: %x, %x\n", __func__, buf[0], buf[1]);
 	else if (ts->auto_reset && ts->reset) {
-		printk(KERN_INFO "[TP]For PVT device, auto reset for recovery.\n");
+		printk(KERN_INFO "%s: [TP]For PVT device, auto reset for recovery.\n", __func__);
 		ts->reset();
 		if (!i2c_cy8c_read(ts->client, 0x00, buf, 2))
 			printk(KERN_INFO "%s: %x, %x\n", __func__, buf[0], buf[1]);
