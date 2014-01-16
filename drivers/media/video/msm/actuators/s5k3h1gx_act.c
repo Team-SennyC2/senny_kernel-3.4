@@ -228,24 +228,29 @@ int s5k3h2yx_actuator_af_power_down(void *params)
 }
 
 static int32_t s5k3h2yx_wrapper_i2c_write(struct msm_actuator_ctrl_t *a_ctrl,
-    int16_t next_lens_position, void *params)
+	int16_t next_lens_position, void *params)
 {
-    int32_t rc = 0;
-    unsigned char buf[2];
-    uint8_t mode_mask = 0;
-    if(params) {
-	pr_info("[CAM] %s: next_lens_position=%d mode_mask=%d\n", __func__, next_lens_position, mode_mask);
-        mode_mask = *((uint8_t*)params);
-    }
- 
-    buf[0] = next_lens_position >> 4;
-    buf[1] = ((next_lens_position & 0x000F) << 4) | mode_mask;
-    rc = msm_camera_i2c_txdata(&a_ctrl->i2c_client, buf, 2);
-    if (rc < 0) {
-        pr_err("%s: write failed (%d)\n", __func__, rc);
-    }
- 
-    return rc;
+	int32_t rc = 0;
+
+	rc = msm_camera_i2c_write(&a_ctrl->i2c_client,
+		REG_VCM_CODE_MSB,
+		((next_lens_position & 0x0300) >> 8),
+		MSM_CAMERA_I2C_BYTE_DATA);
+	if (rc < 0) {
+		pr_err("%s VCM_CODE_MSB i2c write failed (%d)\n", __func__, rc);
+		return rc;
+	}
+
+	rc = msm_camera_i2c_write(&a_ctrl->i2c_client,
+		REG_VCM_CODE_LSB,
+		(next_lens_position & 0x00FF),
+		MSM_CAMERA_I2C_BYTE_DATA);
+	if (rc < 0) {
+		pr_err("%s VCM_CODE_LSB i2c write failed (%d)\n", __func__, rc);
+		return rc;
+	}
+
+	return rc;
 }
 
 int32_t s5k3h2yx_act_write_focus(
