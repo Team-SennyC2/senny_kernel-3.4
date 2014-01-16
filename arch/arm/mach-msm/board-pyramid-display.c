@@ -841,7 +841,7 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 #endif
 	.mdp_rev = MDP_REV_41,
-	.mem_hid = BIT(ION_CP_MM_HEAP_ID),
+	.mem_hid = BIT(ION_CP_WB_HEAP_ID),
 	.cont_splash_enabled = 0x00,
 	.splash_screen_addr = 0x00,
 	.splash_screen_size = 0x00,
