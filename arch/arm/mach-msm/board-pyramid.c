@@ -53,10 +53,10 @@
 #include <mach/irqs.h>
 #include <mach/msm_spi.h>
 
-#ifdef CONFIG_BT
+
 #include <mach/msm_serial_hs.h>
 #include <mach/htc_bdaddress.h>
-#endif
+
 
 #include <mach/msm_serial_hs_lite.h>
 #include <mach/msm_iomap.h>
@@ -1842,6 +1842,8 @@ static struct attribute_group pyramid_properties_attr_group = {
 #ifdef CONFIG_BT
 static struct msm_serial_hs_platform_data msm_uart_dm1_pdata = {
 	.inject_rx_on_wakeup = 0,
+
+	
 	.bt_wakeup_pin = PYRAMID_GPIO_BT_CHIP_WAKE,
 	.host_wakeup_pin = PYRAMID_GPIO_BT_HOST_WAKE,
 };
@@ -3643,12 +3645,14 @@ static void __init msm8x60_init_buses(void)
 
 #ifdef CONFIG_BT
 	bt_export_bd_address();
-#ifdef CONFIG_SERIAL_MSM_HS 
-	msm_uart_dm1_pdata.wakeup_irq = gpio_to_irq(PYRAMID_GPIO_BT_HOST_WAKE);
-	msm_device_uart_dm1.name = "msm_serial_hs_brcm";
+#ifdef CONFIG_SERIAL_MSM_HS_BRCM
+ 	msm_device_uart_dm1.name = "msm_serial_hs_brcm";
+#else
+	msm_device_uart_dm1.name = "msm_serial_hs";
+#endif
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
 #endif
-#endif
+
 
 #ifdef CONFIG_MSM_BUS_SCALING
 	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {

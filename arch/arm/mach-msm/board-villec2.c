@@ -2326,6 +2326,8 @@ static struct msm_serial_hs_platform_data msm_uart_dm1_pdata = {
 	.host_wakeup_pin = VILLEC2_GPIO_BT_HOST_WAKE,
 };
 
+
+
 static struct platform_device villec2_rfkill = {
 	.name = "villec2_rfkill",
 	.id = -1,
@@ -6266,16 +6268,15 @@ static void __init msm8x60_init_buses(void)
 
 #ifdef CONFIG_BT
 	bt_export_bd_address();
-#endif
-#ifdef CONFIG_SERIAL_MSM_HS 
-	msm_uart_dm1_pdata.wakeup_irq = gpio_to_irq(VILLEC2_GPIO_BT_HOST_WAKE);
+
+#ifdef CONFIG_SERIAL_MSM_HS_BRCM
 	msm_device_uart_dm1.name = "msm_serial_hs_brcm";
+#else
+	msm_device_uart_dm1.name = "msm_serial_hs";
+#endif
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
 #endif
-
-#ifdef CONFIG_MSM_BUS_SCALING
-
-	
+	#ifdef CONFIG_MSM_BUS_SCALING
 	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
 		msm_bus_apps_fabric_pdata.rpm_enabled = 1;
 		msm_bus_sys_fabric_pdata.rpm_enabled = 1;
