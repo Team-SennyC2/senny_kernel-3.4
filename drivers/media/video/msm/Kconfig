@@ -201,18 +201,21 @@ config S5K4E5YX
           Samsung 5M with Autofocus
 	  
 config S5K3H1GX
-  bool "Sensor s5k3h1gx"
-  depends on MSM_CAMERA
-  default n
-  ---help---
-    Samsung 8M 3H1 MIPI AF Sensor
-    
-    config S5K3H1GX_ACT
-	bool "Sensor s5k3h2yx actuator"
+	bool "Sensor s5k3h1gx (Samsung 8M)"
 	depends on MSM_CAMERA
 	default n
 	---help---
-	  Autofocus of s5k3h2yx actuator
+	  Support for S5K3H1GX samsung sensor driver.
+	  It is a Bayer 8MP sensor with auto focus and it supports
+	  two mipi lanes.
+
+config S5K3H1GX_ACT
+	bool "Sensor s5k3h1gx actuator"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Autofocus of s5k3h1gx actuator
+
 
 config MSM_CAMERA_FLASH_SC628A
 	bool "Qualcomm MSM camera sc628a flash support"
