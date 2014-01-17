@@ -2375,7 +2375,6 @@ static int mdp_off(struct platform_device *pdev)
 	complete_all(&vsync_cntrl.vsync_wait);
 
 	mdp_clk_ctrl(1);
-	ret = panel_next_early_off(pdev);
 	mdp_lut_status_backup();
 	ret = panel_next_early_off(pdev);
 
