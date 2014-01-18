@@ -1,6 +1,8 @@
 /* Copyright (C) 2010-2011 HTC Corporation.
  * Copyright (c) 2013 Sebastian Sobczyk <sebastiansobczyk@wp.pl>
  *
+ * Copyright (c) 2014 Sultanxda <sultanxda@gmail.com>
+ *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -16,6 +18,30 @@
 
 #include <mach/board.h>
 #include <mach/msm_memtypes.h>
+
+/*** Memory map ***/
+#define MSM_SMI_SIZE         0x4000000
+#define MSM_ION_SF_SIZE      0x29A0000
+#define MSM_ION_MM_FW_SIZE   0x200000
+#define MSM_ION_MM_SIZE      0x3400000
+#define MSM_ION_WB_SIZE      0x2FD000
+#define MSM_ION_CAMERA_SIZE  0x2000000
+#define MSM_ION_AUDIO_SIZE   0x4CF000
+
+#define MSM_ION_HEAP_NUM     7
+
+#define MSM_SMI_BASE         0x38000000
+#define MSM_ION_MM_FW_BASE   0x38000000
+#define MSM_ION_MM_BASE      0x38200000
+#define MSM_FB_BASE          0x3B600000
+#define MSM_ION_SF_BASE      0x40400000
+#define MSM_ION_WB_BASE      0x46400000
+#define MSM_ION_AUDIO_BASE   0x6DB00000
+#define MSM_ION_CAMERA_BASE  0x6E000000
+
+#define PHY_BASE_ADDR1       0x48000000
+#define SIZE_ADDR1           0x25B00000
+/*** END Memory map ***/
 
 #define MSM_RAM_CONSOLE_BASE	MSM_HTC_RAM_CONSOLE_PHYS
 #define MSM_RAM_CONSOLE_SIZE	MSM_HTC_RAM_CONSOLE_SIZE

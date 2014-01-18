@@ -132,25 +132,6 @@
 #include <linux/memblock.h>
 #include <linux/clk.h>
 #include <linux/msm_ion.h>
-#define PHY_BASE_ADDR1       0x48000000
-#define SIZE_ADDR1           0x28000000
-
-#define MSM_ION_SF_SIZE      0x3600000
-#define MSM_ION_MM_FW_SIZE   0x200000
-#define MSM_ION_MM_SIZE      0x2700000
-#define MSM_ION_MFC_SIZE     0x100000
-#define MSM_ION_WB_SIZE      0x2FD000
-#define MSM_ION_CAMERA_SIZE  0x3000000
-#define MSM_ION_AUDIO_SIZE   0x4CF000
-
-#define MSM_ION_HEAP_NUM     8
-
-#define MSM_ION_SF_BASE      0x38000000
-#define MSM_ION_MM_FW_BASE   0x40400000
-#define MSM_ION_MM_BASE      0x40600000
-#define MSM_ION_MFC_BASE     0x42D00000
-#define MSM_ION_WB_BASE      0x46400000
-#define MSM_ION_CAMERA_BASE  0x49800000
 
 #ifdef CONFIG_CPU_FREQ_GOV_ONDEMAND_2_PHASE
 int set_two_phase_freq(int cpufreq);
@@ -2651,19 +2632,14 @@ static struct platform_device *pyramid_devices[] __initdata = {
 static struct ion_co_heap_pdata co_sf_ion_pdata = {
 	.adjacent_mem_id = INVALID_HEAP_ID,
 	.align = PAGE_SIZE,
-	.request_region = request_smi_region,
-	.release_region = release_smi_region,
-	.setup_region = setup_smi_region,
 };
 
 static struct ion_cp_heap_pdata cp_mm_ion_pdata = {
 	.permission_type = IPT_TYPE_MM_CARVEOUT,
 	.align = PAGE_SIZE,
-};
-
-static struct ion_cp_heap_pdata cp_mfc_ion_pdata = {
-	.permission_type = IPT_TYPE_MFC_SHAREDMEM,
-	.align = PAGE_SIZE,
+	.request_region = request_smi_region,
+	.release_region = release_smi_region,
+	.setup_region = setup_smi_region,
 };
 
 static struct ion_cp_heap_pdata cp_wb_ion_pdata = {
@@ -2682,8 +2658,6 @@ static struct ion_co_heap_pdata co_ion_pdata = {
 };
 
 struct ion_platform_heap msm8660_heaps[] = {
-
-
 		{
 			.id	= ION_SYSTEM_HEAP_ID,
 			.type	= ION_HEAP_TYPE_SYSTEM,
@@ -2717,15 +2691,6 @@ struct ion_platform_heap msm8660_heaps[] = {
 			.extra_data = &co_mm_fw_ion_pdata,
 		},
 		{
-			.id	= ION_CP_MFC_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CP,
-			.name	= ION_MFC_HEAP_NAME,
-			.size	= MSM_ION_MFC_SIZE,
-			.base	= MSM_ION_MFC_BASE,
-			.memory_type = ION_EBI_TYPE,
-			.extra_data = &cp_mfc_ion_pdata,
-		},
-		{
 			.id	= ION_CAMERA_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
 			.name	= ION_CAMERA_HEAP_NAME,
@@ -2738,8 +2703,8 @@ struct ion_platform_heap msm8660_heaps[] = {
 			.id	= ION_CP_WB_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CP,
 			.name	= ION_WB_HEAP_NAME,
-			.base	= MSM_ION_WB_BASE,
 			.size	= MSM_ION_WB_SIZE,
+			.base	= MSM_ION_WB_BASE,
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = &cp_wb_ion_pdata,
 		},
@@ -2748,10 +2713,10 @@ struct ion_platform_heap msm8660_heaps[] = {
 			.type	= ION_HEAP_TYPE_CARVEOUT,
 			.name	= ION_AUDIO_HEAP_NAME,
 			.size	= MSM_ION_AUDIO_SIZE,
+			.base   = MSM_ION_AUDIO_BASE,
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = &co_ion_pdata,
 		},
-	
 };
 
 static struct ion_platform_data ion_pdata = {
@@ -2765,9 +2730,6 @@ static struct platform_device ion_dev = {
 	.dev = { .platform_data = &ion_pdata },
 };
 #endif
-
-#define MSM_SMI_BASE          0x38000000
-#define MSM_SMI_SIZE          0x4000000
 
 static struct memtype_reserve msm8x60_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -2783,31 +2745,6 @@ static struct memtype_reserve msm8x60_reserve_table[] __initdata = {
 	},
 };
 
-static void __init reserve_ion_memory(void)
-{
-#ifdef CONFIG_ION_MSM
-	unsigned int i;
-	int ret;
-
-	ret = memblock_remove(MSM_ION_CAMERA_BASE, MSM_ION_CAMERA_SIZE);
-	BUG_ON(ret);
-
-	for (i = 0; i < ion_pdata.nr; ++i) {
-		struct ion_platform_heap *heap = &(ion_pdata.heaps[i]);
-		if(heap->base == 0) {
-			switch(heap->memory_type) {
-			case ION_SMI_TYPE:
-				msm8x60_reserve_table[MEMTYPE_SMI].size += heap->size;
-				break;
-			case ION_EBI_TYPE:
-				msm8x60_reserve_table[MEMTYPE_EBI1].size += heap->size;
-				break;
-			}
-		}
-	}
-#endif
-}
-
 static void __init reserve_mdp_memory(void)
 {
 	pyramid_mdp_writeback(msm8x60_reserve_table);
@@ -2815,7 +2752,6 @@ static void __init reserve_mdp_memory(void)
 
 static void __init msm8x60_calculate_reserve_sizes(void)
 {
-	reserve_ion_memory();
 	reserve_mdp_memory();
 }
 
