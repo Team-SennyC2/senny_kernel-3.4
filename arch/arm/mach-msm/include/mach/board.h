@@ -506,6 +506,7 @@ struct mipi_dsi_platform_data {
 	int (*get_lane_config)(void);
 	char (*splash_is_enabled)(void);
 	int target_type;
+	int (*deferred_reset_driver_ic)(void);
 };
 
 enum mipi_dsi_3d_ctrl {
@@ -522,6 +523,11 @@ struct mipi_dsi_phy_ctrl {
 	uint32_t pll[21];
 };
 
+struct mipi_dsi_reg_set {
+	uint32_t reg;
+	uint32_t value;
+};
+
 struct mipi_dsi_panel_platform_data {
 	int fpga_ctrl_mode;
 	int fpga_3d_config_addr;
@@ -530,7 +536,7 @@ struct mipi_dsi_panel_platform_data {
 	char dlane_swap;
 	void (*dsi_pwm_cfg)(void);
 	char enable_wled_bl_ctrl;
-	void (*gpio_set_backlight)(int bl_level);
+	unsigned char (*shrink_pwm)(int val);
 };
 
 struct lvds_panel_platform_data {
