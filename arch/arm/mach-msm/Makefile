@@ -365,6 +365,8 @@ obj-$(CONFIG_MACH_PYRAMID) += htc_util.o
 obj-$(CONFIG_MACH_PYRAMID) += board-pyramid-audio.o
 obj-$(CONFIG_MACH_PYRAMID) += board-pyramid-display.o
 
+obj-$(CONFIG_FORCE_FAST_CHARGE) += fastchg.o
+
 CFLAGS_msm_vibrator.o += -Idrivers/staging/android
 CFLAGS_board-9615.o += -Idrivers/usb/gadget
 
