@@ -33,15 +33,10 @@
 
 static int camera_sensor_power_enable(char *power, unsigned volt, struct regulator **sensor_power);
 static int camera_sensor_power_disable(struct regulator *sensor_power);
-/*
 static struct platform_device msm_camera_server = {
 	.name = "msm_cam_server",
 	.id = 0,
 };
-*/
-
-static int pyramid_config_camera_on_gpios(void);
-static void pyramid_config_camera_off_gpios(void);
 
 #ifdef CONFIG_MSM_CAMERA
 static struct msm_bus_vectors cam_init_vectors[] = {
@@ -239,8 +234,6 @@ static struct msm_bus_scale_pdata cam_bus_client_pdata = {
 
 struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 	{
-	.camera_gpio_on  = pyramid_config_camera_on_gpios,
-	.camera_gpio_off = pyramid_config_camera_off_gpios,
 	.ioext.csiphy = 0x04800000,
 	.ioext.csisz  = 0x00000400,
 	.ioext.csiirq = CSI_0_IRQ,
@@ -252,8 +245,6 @@ struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 	.cam_bus_scale_table = &cam_bus_client_pdata,
 	},
 	{
-	.camera_gpio_on  = pyramid_config_camera_on_gpios,
-	.camera_gpio_off = pyramid_config_camera_off_gpios,
 	.ioext.csiphy = 0x04900000,
 	.ioext.csisz  = 0x00000400,
 	.ioext.csiirq = CSI_1_IRQ,
@@ -265,50 +256,22 @@ struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 	.cam_bus_scale_table = &cam_bus_client_pdata,
 	},
 };
-int aat1271_flashlight_control(int mode);
+
 #ifdef CONFIG_MSM_CAMERA_FLASH
-static int flashlight_control(int mode)
+int flashlight_control(int mode)
 {
-/* HTC_START Turn off backlight when flash on */
-        int        rc;
-        static int brightness = 255;
-        static int backlight_off = 0;
-
-        pr_info("[CAM] %s, linear led, mode %d backlight_off %d", __func__, mode, backlight_off);
-
-        if (mode != FL_MODE_PRE_FLASH && mode != FL_MODE_OFF) {
-                if (!backlight_off) {
-                        /* restore backlight brightness value first */
-                        brightness = led_brightness_value_get("lcd-backlight");
-                        if (brightness >= 0 && brightness <= 255) {
-                                pr_info("[CAM] %s, Turn off backlight before flashlight, brightness %d", __func__, brightness);
-                                led_brightness_value_set("lcd-backlight", 0);
-                                backlight_off = 1;
-                        } else
-                                pr_err("[CAM] %s, Invalid brightness value!! brightness %d", __func__, brightness);
-                }
-        }
-
-        rc = aat1271_flashlight_control(mode);
-
-        if (mode == FL_MODE_PRE_FLASH || mode == FL_MODE_OFF) {
-                if(backlight_off) {
-                        pr_info("[CAM] %s, Turn on backlight after flashlight, brightness %d", __func__, brightness);
-                        led_brightness_value_set("lcd-backlight", brightness);
-                        backlight_off = 0;
-                }
-        }
-
-        return rc;
-/* HTC_END */
+#ifdef CONFIG_FLASHLIGHT_AAT
+	return aat1271_flashlight_control(mode);
+#else
+	return 0;
+#endif
 }
-
 
 static struct msm_camera_sensor_flash_src msm_flash_src = {
 	.flash_sr_type = MSM_CAMERA_FLASH_SRC_CURRENT_DRIVER,
 	.camera_flash = flashlight_control,
 };
-
+#endif
 
 static struct regulator *pyramid_reg_8058_l9 = NULL;
 static struct regulator *pyramid_reg_8058_l10 = NULL;
@@ -329,9 +292,7 @@ static int camera_sensor_power_enable(char *power, unsigned volt, struct regulat
 		return -ENODEV;
 	}
 
-	/*
 	if (volt != 1800000) {
-	*/
 		rc = regulator_set_voltage(*sensor_power, volt, volt);
 		if (rc < 0) {
 			pr_info("%s: failed to unable to set %s voltage to %d rc:%d\n",
@@ -340,9 +301,7 @@ static int camera_sensor_power_enable(char *power, unsigned volt, struct regulat
 			*sensor_power = NULL;
 			return -ENODEV;
 		}
-	/*
 	}
-	*/
 
 	rc = regulator_enable(*sensor_power);
 	if (rc < 0) {
@@ -377,24 +336,24 @@ static int camera_sensor_power_disable(struct regulator *sensor_power)
 }
 
 static uint32_t camera_off_gpio_table[] = {
-	GPIO_CFG(PYRAMID_GPIO_CAM1_RSTz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
-	GPIO_CFG(PYRAMID_GPIO_CAM2_RSTz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
-	GPIO_CFG(PYRAMID_GPIO_CAM2_PWDN, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
-	GPIO_CFG(PYRAMID_GPIO_CAM_MCLK, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_16MA),
+	GPIO_CFG(PYRAMID_CAM1_RSTz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+	GPIO_CFG(PYRAMID_CAM2_RSTz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+	GPIO_CFG(PYRAMID_CAM2_PWDN, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+	GPIO_CFG(PYRAMID_CAM_MCLK, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_16MA),
 	GPIO_CFG(PYRAMID_CAM_I2C_SDA, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA),
 	GPIO_CFG(PYRAMID_CAM_I2C_SCL, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA),
-	GPIO_CFG(PYRAMID_GPIO_MCLK_SWITCH, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+	GPIO_CFG(PYRAMID_MCLK_SWITCH, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
 	GPIO_CFG(PYRAMID_CAM_CAM1_ID, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
 };
 
 static uint32_t camera_on_gpio_table[] = {
 	GPIO_CFG(PYRAMID_CAM_I2C_SDA, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA),
 	GPIO_CFG(PYRAMID_CAM_I2C_SCL, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA),
-	GPIO_CFG(PYRAMID_GPIO_CAM_MCLK, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_16MA),
-	GPIO_CFG(PYRAMID_GPIO_CAM1_RSTz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
-	GPIO_CFG(PYRAMID_GPIO_CAM2_RSTz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
-	GPIO_CFG(PYRAMID_GPIO_CAM2_PWDN, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
-	GPIO_CFG(PYRAMID_GPIO_MCLK_SWITCH, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+	GPIO_CFG(PYRAMID_CAM_MCLK, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_16MA),
+	GPIO_CFG(PYRAMID_CAM1_RSTz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+	GPIO_CFG(PYRAMID_CAM2_RSTz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+	GPIO_CFG(PYRAMID_CAM2_PWDN, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+	GPIO_CFG(PYRAMID_MCLK_SWITCH, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
 	GPIO_CFG(PYRAMID_CAM_CAM1_ID, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
 };
 
@@ -431,6 +390,7 @@ static void pyramid_config_camera_off_gpios(void)
 		ARRAY_SIZE(camera_off_gpio_table));
 }
 
+#ifdef CONFIG_S5K3H1GX
 static int pyramid_s5k3h1gx_vreg_on(void)
 {
 	static int first_run = 1;
@@ -601,7 +561,7 @@ static struct i2c_board_info s5k3h1gx_actuator_i2c_info = {
 static struct msm_actuator_info s5k3h1gx_actuator_info = {
 	.board_info     = &s5k3h1gx_actuator_i2c_info,
 	.bus_id         = MSM_GSBI4_QUP_I2C_BUS_ID,
-	.vcm_pwd        = PYRAMID_GPIO_CAM_VCM_PD,
+	.vcm_pwd        = PYRAMID_CAM_VCM_PD,
 };
 #endif
 
@@ -609,12 +569,12 @@ static struct msm_camera_sensor_platform_info sensor_s5k3h1gx_board_info = {
 	.mount_angle = 90,
 	.mirror_flip = CAMERA_SENSOR_MIRROR_FLIP,
 	.sensor_reset_enable = 1,
-	.sensor_reset	= PYRAMID_GPIO_CAM1_RSTz,
+	.sensor_reset	= PYRAMID_CAM1_RSTz,
 };
 
 static struct camera_flash_cfg msm_camera_sensor_s5k3h1gx_flash_cfg = {
 	.low_temp_limit		= 5,
-	.low_cap_limit		= 1,
+	.low_cap_limit		= 15,
 };
 
 static struct msm_camera_sensor_flash_data flash_s5k3h1gx = {
@@ -636,15 +596,8 @@ static struct msm_camera_sensor_info msm_camera_sensor_s5k3h1gx_data = {
 #ifdef CONFIG_S5K3H1GX_ACT
 	.actuator_info = &s5k3h1gx_actuator_info,
 #endif
-	.use_rawchip = 0,
+	.use_rawchip = RAWCHIP_DISABLE,
 	.flash_cfg = &msm_camera_sensor_s5k3h1gx_flash_cfg,
-};
-
-struct platform_device pyramid_camera_sensor_s5k3h1gx = {
-	.name	= "msm_camera_s5k3h1gx",
-	.dev	= {
-		.platform_data = &msm_camera_sensor_s5k3h1gx_data,
-	},
 };
 #endif
 
@@ -688,14 +641,14 @@ static int pyramid_mt9v113_vreg_on(void)
 
 	pyramid_config_camera_on_gpios();
 
-	rc = gpio_request(PYRAMID_GPIO_MCLK_SWITCH, "CAM_SEL");
+	rc = gpio_request(PYRAMID_MCLK_SWITCH, "CAM_SEL");
 	if (rc < 0)
 	{
-		pr_err("[CAM] GPIO (%d) request fail\n", PYRAMID_GPIO_MCLK_SWITCH);
+		pr_err("[CAM] GPIO (%d) request fail\n", PYRAMID_MCLK_SWITCH);
 		goto init_fail;
 	}
-	gpio_direction_output(PYRAMID_GPIO_MCLK_SWITCH, 1);
-	gpio_free(PYRAMID_GPIO_MCLK_SWITCH);
+	gpio_direction_output(PYRAMID_MCLK_SWITCH, 1);
+	gpio_free(PYRAMID_MCLK_SWITCH);
 
 init_fail:
 	return rc;
@@ -741,14 +694,14 @@ static int pyramid_mt9v113_vreg_off(void)
 	pyramid_config_camera_off_gpios();
 
 	pr_info("[CAM] Doing clk switch to sleep state\n");
-	rc = gpio_request(PYRAMID_GPIO_MCLK_SWITCH, "CAM_SEL");
+	rc = gpio_request(PYRAMID_MCLK_SWITCH, "CAM_SEL");
 	if (rc < 0)
 	{
-		pr_err("[CAM] GPIO (%d) request fail\n", PYRAMID_GPIO_MCLK_SWITCH);
+		pr_err("[CAM] GPIO (%d) request fail\n", PYRAMID_MCLK_SWITCH);
 		goto init_fail;
 	}
-	gpio_direction_output(PYRAMID_GPIO_MCLK_SWITCH, 0);
-	gpio_free(PYRAMID_GPIO_MCLK_SWITCH);
+	gpio_direction_output(PYRAMID_MCLK_SWITCH, 0);
+	gpio_free(PYRAMID_MCLK_SWITCH);
 
 init_fail:
 		return rc;
@@ -758,7 +711,7 @@ static struct msm_camera_sensor_platform_info sensor_mt9v113_board_info = {
 	.mount_angle = 270,
 	.mirror_flip = CAMERA_SENSOR_NONE,
 	.sensor_reset_enable = 1,
-	.sensor_reset = PYRAMID_GPIO_CAM2_RSTz,
+	.sensor_reset = PYRAMID_CAM2_RSTz,
 };
 
 static struct msm_camera_sensor_flash_data flash_mt9v113 = {
@@ -767,7 +720,7 @@ static struct msm_camera_sensor_flash_data flash_mt9v113 = {
 
 static struct msm_camera_sensor_info msm_camera_sensor_mt9v113_data = {
 	.sensor_name	= "mt9v113",
-	.sensor_reset	= PYRAMID_GPIO_CAM2_RSTz,
+	.sensor_reset	= PYRAMID_CAM2_RSTz,
 	.camera_power_on = pyramid_mt9v113_vreg_on,
 	.camera_power_off = pyramid_mt9v113_vreg_off,
 	.pdata	= &msm_camera_csi_device_data[1],
@@ -775,14 +728,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_mt9v113_data = {
 	.sensor_platform_info = &sensor_mt9v113_board_info,
 	.csi_if	= 1,
 	.camera_type = FRONT_CAMERA_2D,
-	.use_rawchip = 0, 
-};
-
-struct platform_device pyramid_camera_sensor_mt9v113 = {
-	.name	= "msm_camera_mt9v113",
-	.dev	= {
-		.platform_data = &msm_camera_sensor_mt9v113_data,
-	},
+	.use_rawchip = RAWCHIP_DISABLE, 
 };
 #endif  
 
@@ -805,34 +751,17 @@ static struct i2c_board_info msm_camera_boardinfo[] = {
 
 void __init msm8x60_init_cam(void)
 {
-	int i = 0;
-
-	struct platform_device *cam_dev[] = {
-#ifdef CONFIG_S5K3H1GX
-		&pyramid_camera_sensor_s5k3h1gx,
-#endif
-#ifdef CONFIG_MT9V113
-		&pyramid_camera_sensor_mt9v113,
-#endif
-	};
-
 	pr_info("%s", __func__);
 
 	i2c_register_board_info(MSM_GSBI4_QUP_I2C_BUS_ID,
 		msm_camera_boardinfo,
 		ARRAY_SIZE(msm_camera_boardinfo));
 
-	/*
 	platform_device_register(&msm_camera_server);
-	*/
 
-	for (i = 0; i < ARRAY_SIZE(cam_dev); i++) {
-		platform_device_register(cam_dev[i]);
-	}
-
-	platform_device_register(&msm8x60_device_csic0);
-	platform_device_register(&msm8x60_device_csic1);
-	platform_device_register(&msm8x60_device_vfe);
-	platform_device_register(&msm8x60_device_vpe);
+	platform_device_register(&msm_device_csic0);
+	platform_device_register(&msm_device_csic1);
+	platform_device_register(&msm_device_vfe);
+	platform_device_register(&msm_device_vpe);
 }
 #endif	
