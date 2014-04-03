@@ -2553,7 +2553,7 @@ static struct platform_device *pyramid_devices[] __initdata = {
 	&msm_gsbi10_qup_i2c_device,
 	&msm_gsbi12_qup_i2c_device,
 #endif
-#ifdef CONFIG_SERIAL_MSM_HS 
+#ifdef CONFIG_SERIAL_MSM_HS_BRCM
 	&msm_device_uart_dm1,
 #endif
 #ifdef CONFIG_BT
@@ -3664,12 +3664,10 @@ static void __init msm8x60_init_buses(void)
 
 #ifdef CONFIG_BT
 	bt_export_bd_address();
+#endif
 #ifdef CONFIG_SERIAL_MSM_HS_BRCM
 	msm_uart_dm1_pdata.wakeup_irq = gpio_to_irq(PYRAMID_GPIO_BT_HOST_WAKE);
 	msm_device_uart_dm1.name = "msm_serial_hs_brcm";
-#else
-	msm_device_uart_dm1.name = "msm_serial_hs";
-#endif
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
 #endif
 
